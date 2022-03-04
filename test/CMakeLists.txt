@@ -58,3 +58,5 @@ else()
 package_add_test(test_kokkos_perf test_kokkos_perf.cpp)
 endif()
 
+package_add_test(test_kokkos_perf_fp test_kokkos_perf_fp.cpp)
+

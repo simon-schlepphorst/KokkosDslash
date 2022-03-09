@@ -63,6 +63,11 @@ if( MG_KOKKOS_USE_CUDA )
 
 endif()
 
+# ignore warnings with CUDA
+if(MG_USE_CUDA)
+        add_compile_options(-Wno-error)
+endif()
+
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/kokkos_dslash_config.h.cmake.in
   ${CMAKE_CURRENT_BINARY_DIR}/include/kokkos_dslash_config.h)
   

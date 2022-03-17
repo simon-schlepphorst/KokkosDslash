@@ -31,6 +31,7 @@ static constexpr int VectorLength=1;
 #else
 
 #if defined(MG_USE_AVX512) || defined(MG_USE_AVX2)
+// should default to 8, so fine for SVE512
 #ifdef MG_USE_AVX512
 static constexpr int VectorLength=8;
 #endif

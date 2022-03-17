@@ -393,7 +393,7 @@ KokkosProjectLattice<MGComplex<REAL>,MGComplex<REAL>,1,-1>(kokkos_in,kokkos_hspi
 }
 #endif
 
-#if defined( MG_USE_AVX512 ) || defined (MG_USE_AVX2) || defined( MG_USE_CUDA )
+#if defined( MG_USE_AVX512 ) || defined (MG_USE_AVX2) || defined( MG_USE_CUDA ) || defined(MG_USE_SVE512)
 TEST(TestKokkos, TestSpinProjectVec)
 {
 	IndexArray latdims={{4,2,2,4}};
@@ -585,7 +585,7 @@ TEST(TestKokkos, TestSpinRecons)
 #endif
 
 
-#if defined( MG_USE_AVX512 ) || defined (MG_USE_AVX2) || defined( MG_USE_CUDA )
+#if defined( MG_USE_AVX512 ) || defined (MG_USE_AVX2) || defined( MG_USE_CUDA ) || defined(MG_USE_SVE512)
 TEST(TestKokkos, TestSpinReconsVec)
 {
 	IndexArray latdims={{4,2,2,4}};
@@ -1082,7 +1082,7 @@ TEST(TestKokkos, TestDslashMDRange)
 }
 #endif
 
-#if defined( MG_USE_AVX512 ) || defined (MG_USE_AVX2) || defined( MG_USE_CUDA )
+#if defined( MG_USE_AVX512 ) || defined (MG_USE_AVX2) || defined( MG_USE_CUDA ) || defined(MG_USE_SVE512)
 TEST(TestKokkos, TestDslashVec)
 {
 	IndexArray latdims={{4,4,4,4}};

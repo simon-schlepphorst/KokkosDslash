@@ -24,6 +24,9 @@
 #include "cuda_runtime.h"
 #endif
 
+#if defined(MG_USE_SVE512)
+// just use generics for now
+#endif
 
 #include <Kokkos_Core.hpp>
 
@@ -105,7 +108,7 @@ template<typename T, int N>
 
 #if ! defined( MG_USE_CUDA ) 
 
-#if defined( MG_USE_AVX512 ) || defined(MG_USE_AVX2)
+#if defined( MG_USE_AVX512 ) || defined(MG_USE_AVX2) || defined(MG_USE_SVE512)
 // GENERAL THREADVECTORRANGE
 // T1 must support indexing with operator()
   template<typename T, int N, template <typename,int> class T1, template <typename,int> class T2>

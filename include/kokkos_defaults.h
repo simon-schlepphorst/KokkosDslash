@@ -61,7 +61,7 @@ using SimpleRange = Kokkos::RangePolicy<ExecSpace>;
 #endif
 
 
-#if defined(MG_USE_CUDA) || defined(MG_USE_AVX512) || defined(MG_USE_AVX2) 
+#if defined(MG_USE_CUDA) || defined(MG_USE_AVX512) || defined(MG_USE_AVX2) || defined(MG_USE_SVE512)
 using TeamHandle =  ThreadExecPolicy::member_type;
 using VectorPolicy = Kokkos::Impl::ThreadVectorRangeBoundariesStruct<int,TeamHandle>;
 #endif

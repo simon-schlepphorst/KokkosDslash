@@ -24,6 +24,9 @@
 // AVX2 
 #cmakedefine MG_USE_AVX2 @MG_USE_AVX2@
 
+// SVE512
+#cmakedefine MG_USE_SVE512 @MG_USE_SVE512@
+
 // CUDA
 #cmakedefine MG_USE_CUDA @MG_USE_CUDA@
 

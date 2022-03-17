@@ -338,8 +338,8 @@ TEST(TestKokkos, TestDslash)
 	  // QDP++ LatticeFermionF should go away here.
 	}
 
-	//for(int sites_per_team=8; sites_per_team < 8192; sites_per_team *=2) {
-	int sites_per_team=32;
+	for(int sites_per_team=8; sites_per_team < 8192; sites_per_team *=2) {
+	//int sites_per_team=32;
 
 	KokkosDslash<MGComplex<REAL32>,MGComplex<REAL32>, MGComplex<REAL32>> D(info,sites_per_team);
 
@@ -372,7 +372,7 @@ TEST(TestKokkos, TestDslash)
 	    
 	  // } // isign
 	} 
-       //  } // -- sites_per_team
+       } // -- sites_per_team
 }
 #endif
 

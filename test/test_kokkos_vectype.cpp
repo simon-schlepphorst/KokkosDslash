@@ -392,6 +392,10 @@ TEST(TestVectype, Test_A_peq_sign_B_D4 )
 #define VLEN 8
 #endif
 
+#ifdef MG_USE_SVE512
+#define VLEN 8
+#endif
+
 #ifdef MG_USE_AVX2
 #define VLEN 4
 #endif

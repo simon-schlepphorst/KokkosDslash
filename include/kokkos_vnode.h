@@ -275,6 +275,57 @@ struct VNode<MGComplex<float>,4> {
 } // Namespace
 #endif // AVX2
 
+#if defined(MG_USE_SVE512)
+
+#include <arm_sve.h>
+
+namespace MG {
+
+typedef svuint32_t mask512 __attribute__((arm_sve_vector_bits(512)));
+
+struct PermMaskSVE512 {
+ union {
+   unsigned int maskdata[16];
+   mask512 maskvalue;
+ };
+};
+
+template<>
+struct VNode<MGComplex<float>,8> {
+
+  using VecTypeGlobal = SIMDComplex<float,8>;
+  using VecType = SIMDComplex<float,8>;
+
+  static constexpr int VecLen = 8;
+  static constexpr int NDim = 3;
+
+  static constexpr int Dim0 = 1;
+  static constexpr int Dim1 = 2;
+  static constexpr int Dim2 = 2;
+  static constexpr int Dim3 = 2;
+
+  using MaskType = PermMaskSVE512;
+
+  // These initializations rely on __m512i being a union type
+  static constexpr MaskType NoPermuteMask = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+  static constexpr MaskType XPermuteMask = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+  static constexpr MaskType YPermuteMask = {2,3,0,1,6,7,4,5,10,11,8,9,14,15,12,13};
+  static constexpr MaskType ZPermuteMask = {4,5,6,7,0,1,2,3,12,13,14,15,8,9,10,11};
+  static constexpr MaskType TPermuteMask = {8,9,10,11,12,13,14,15,0,1,2,3,4,5,6,7};
+
+  static
+  KOKKOS_FORCEINLINE_FUNCTION
+  VecType permute(const MaskType& mask, const VecTypeGlobal& vec_in)
+  {
+	VecType vec_out;
+	vec_out._vdata = svtbl_f32(vec_in._vdata, mask.maskvalue);
+	return vec_out;
+  }
+}; // struct vector length = 8
+
+} // Namespace
+#endif // SVE512
+
 
 
 

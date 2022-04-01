@@ -25,7 +25,7 @@
 #endif
 
 #if defined(MG_USE_SVE512)
-// just use generics for now
+#include <arm_sve.h>
 #endif
 
 #include <Kokkos_Core.hpp>
@@ -59,7 +59,7 @@ template<typename T, int N>
   }
 };
 
- // On the GPU only one elemen per 'VectorThread'
+ // On the GPU only one element per 'VectorThread'
 template<typename T, int N>
   struct GPUThreadSIMDComplex {
 
@@ -1646,6 +1646,412 @@ void A_peq_sign_miB<float,4,SIMDComplex,SIMDComplex,-1>( SIMDComplex<float,4>& a
 }
 
 #endif
+
+#if defined(MG_USE_SVE512)
+
+    // ----***** SPECIALIZED *****
+typedef svfloat32_t vec512 __attribute__((arm_sve_vector_bits(512)));
+typedef svuint32_t mask512 __attribute__((arm_sve_vector_bits(512)));
+
+mask512 m0xb1 = {1,0,3,2, 5,4,7,6, 9,8,11,10, 13,12,15,14};
+mask512 m0xa0 = {0,0,2,2, 4,4,6,6, 8,8,10,10, 12,12,14,14};
+mask512 m0xf5 = {1,1,3,3, 5,5,7,7, 9,9,11,11, 13,13,15,15};
+
+typedef svbool_t pred512 __attribute__((arm_sve_vector_bits(512)));
+pred512 p_all = svptrue_b32();
+pred512 p_none = svpfalse_b();
+//pred512 p0x44 ={1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0};
+pred512 p0x44 = svzip1_b32(p_all, p_none);
+//pred512 p0x11 ={0,1,0,1, 0,1,0,1, 0,1,0,1, 0,1,0,1};
+pred512 p0x11 = svzip1_b32(p_none, p_all);
+
+
+template<>
+  struct SIMDComplex<float,8> {
+
+
+  explicit SIMDComplex<float,8>()  {}
+  SIMDComplex<float,8>(const SIMDComplex<float,8>& in)
+  {
+	  _vdata = in._vdata;
+  }
+
+  SIMDComplex<float,8>& operator=(const SIMDComplex<float,8>& in)
+  {
+	  _vdata = in._vdata;
+	  return (*this);
+  }
+
+  vec512 _vdata;
+  //__m512 _vdata;
+
+  constexpr static int len() { return 8; }
+
+  inline
+    void set(int l, const MGComplex<float>& value)
+  {
+      MGComplex<float> *data = reinterpret_cast<MGComplex<float>*>(&_vdata);
+      data[l] = value;
+  }
+
+  inline
+    const MGComplex<float>& operator()(int i) const
+  {
+     const MGComplex<float>* data = reinterpret_cast<const MGComplex<float>*>(&_vdata);
+    return data[i];
+  }
+
+  inline
+  MGComplex<float>& operator()(int i) {
+    MGComplex<float>* data  = reinterpret_cast<MGComplex<float>*>(&_vdata);
+    return data[i];
+  }
+};
+
+
+
+  template<>
+  KOKKOS_FORCEINLINE_FUNCTION
+  void Load<float,8,SIMDComplex,SIMDComplex>(SIMDComplex<float,8>& result,
+		     const SIMDComplex<float,8>& source)
+  {
+    float const* src = reinterpret_cast<float const*>(&(source._vdata));
+
+    result._vdata = svld1_f32(p_all, src);
+    //result._vdata = _mm512_load_ps(src);
+  }
+
+  template<>
+  KOKKOS_FORCEINLINE_FUNCTION
+  void ComplexCopy<float,8,SIMDComplex,SIMDComplex>(SIMDComplex<float,8>& result,
+			    const SIMDComplex<float,8>& source)
+  {
+    result._vdata  = source._vdata;
+  }
+
+  template<>
+  KOKKOS_FORCEINLINE_FUNCTION
+  void Store<float,8,SIMDComplex,SIMDComplex>(SIMDComplex<float,8>& result,
+		      const SIMDComplex<float,8>& source)
+  {
+    float* dest = reinterpret_cast<float*>(&(result._vdata));
+    svst1_f32(p_all,dest,source._vdata);
+    //_mm512_store_ps(dest,source._vdata);
+  }
+
+  template<>
+  KOKKOS_FORCEINLINE_FUNCTION
+  void Stream<float,8,SIMDComplex,SIMDComplex>(SIMDComplex<float,8>& result,
+		      const SIMDComplex<float,8>& source)
+  {
+    float* dest = reinterpret_cast<float*>(&(result._vdata));
+    svstnt1_f32(p_all,dest,source._vdata);
+     //_mm512_stream_ps(dest,source._vdata);
+   // _mm512_store_ps(dest,source._vdata);
+  }
+
+
+  template<>
+  KOKKOS_FORCEINLINE_FUNCTION
+  void ComplexZero<float,8,SIMDComplex>(SIMDComplex<float,8>& result)
+  {
+    result._vdata = svdup_f32(0.);
+    //result._vdata = _mm512_setzero_ps();
+  }
+
+  template<>
+  KOKKOS_FORCEINLINE_FUNCTION
+  void
+  ComplexPeq<float,8,SIMDComplex,SIMDComplex>(SIMDComplex<float,8>& res,
+		      const SIMDComplex<float,8>& a)
+  {
+    res._vdata = svadd_f32_x(p_all,res._vdata,a._vdata);
+    //res._vdata = _mm512_add_ps(res._vdata,a._vdata);
+  }
+
+
+
+template<>
+KOKKOS_FORCEINLINE_FUNCTION
+void
+A_add_sign_B<float,8,SIMDComplex,SIMDComplex,SIMDComplex>( SIMDComplex<float,8>& res,
+			    const SIMDComplex<float,8>& a,
+			    const float& sign,
+			    const SIMDComplex<float,8>& b)
+{
+  vec512 sgnvec = svdup_f32(sign);
+  res._vdata = svmad_f32_x(p_all,sgnvec,b._vdata,a._vdata);
+  //__m512 sgnvec = _mm512_set1_ps(sign);
+  //res._vdata = _mm512_fmadd_ps(sgnvec,b._vdata,a._vdata);
+}
+
+// sign == 1
+template<>
+KOKKOS_FORCEINLINE_FUNCTION
+void
+  A_add_sign_B<float,8,SIMDComplex,SIMDComplex,SIMDComplex,1>( SIMDComplex<float,8>& res,
+			    const SIMDComplex<float,8>& a,
+			    const SIMDComplex<float,8>& b)
+{
+  res._vdata = svadd_f32_x(p_all,a._vdata,b._vdata);
+  //res._vdata = _mm512_add_ps(a._vdata,b._vdata);
+}
+
+// sign == -1
+template<>
+KOKKOS_FORCEINLINE_FUNCTION
+void
+  A_add_sign_B<float,8,SIMDComplex,SIMDComplex,SIMDComplex,-1>( SIMDComplex<float,8>& res,
+			    const SIMDComplex<float,8>& a,
+			    const SIMDComplex<float,8>& b)
+{
+  res._vdata = svsub_f32_x(p_all,a._vdata,b._vdata);
+  //res._vdata = _mm512_sub_ps(a._vdata,b._vdata);
+}
+
+
+
+// a += b
+template<>
+KOKKOS_FORCEINLINE_FUNCTION
+void
+A_peq_sign_B<float,8,SIMDComplex,SIMDComplex>( SIMDComplex<float,8>& a,
+		   const float& sign,
+		   const SIMDComplex<float,8>& b)
+{
+  vec512 sgnvec=svdup_f32(sign);
+  a._vdata = svmad_f32_x(p_all, sgnvec, b._vdata, a._vdata);
+  //__m512 sgnvec=_mm512_set1_ps(sign);
+  //a._vdata = _mm512_fmadd_ps( sgnvec, b._vdata, a._vdata);
+}
+
+// a += b
+template<>
+KOKKOS_FORCEINLINE_FUNCTION
+void
+  A_peq_sign_B<float,8,SIMDComplex,SIMDComplex,1>( SIMDComplex<float,8>& a,
+						   const SIMDComplex<float,8>& b)
+{
+  a._vdata = svadd_f32_x(p_all,a._vdata, b._vdata);
+  //a._vdata = _mm512_add_ps(a._vdata, b._vdata);
+}
+
+// a -= b
+template<>
+KOKKOS_FORCEINLINE_FUNCTION
+void
+  A_peq_sign_B<float,8,SIMDComplex,SIMDComplex,-1>( SIMDComplex<float,8>& a,
+						   const SIMDComplex<float,8>& b)
+{
+  a._vdata = svsub_f32_x(p_all,a._vdata, b._vdata);
+  //a._vdata = _mm512_sub_ps(a._vdata, b._vdata);
+}
+
+
+template<>
+KOKKOS_FORCEINLINE_FUNCTION
+void
+ComplexCMadd<float,8,SIMDComplex,SIMDComplex>(SIMDComplex<float,8>& res,
+	     const MGComplex<float>& a,
+	     const SIMDComplex<float,8>& b)
+{
+  vec512 a_vec_re = svdup_f32(a.real());
+  vec512 a_vec_im = svdup_f32(a.imag());
+  // select with TBL
+  vec512 b_perm = svtbl_f32(b._vdata, m0xb1);
+  // merge with SEL
+  // unneccessary if inputs are the same
+  // b_perm = svsel({1,1,0,0, 1,1,0,0, 1,1,0,0, 1,1,0,0}, b_perm, b_perm);
+  //
+  // fmaddsub:
+  // even: (a*b) - c
+  // odd:  (a*b) + c
+  // ...
+  vec512 t = svsel_f32(p0x44,
+		  svnmsb_f32_x(p0x44, a_vec_im, b_perm, res._vdata),
+		  svmad_f32_x(p0x11, a_vec_im, b_perm, res._vdata));
+  res._vdata = svsel_f32(p0x44,
+		  svnmsb_f32_x(p0x44, a_vec_re, b._vdata, t),
+		  svmad_f32_x(p0x11, a_vec_re, b._vdata, t));
+  //__m512 a_vec_re = _mm512_set1_ps( a.real() );
+  //__m512 a_vec_im = _mm512_set1_ps( a.imag() );
+  //__m512 b_perm = _mm512_shuffle_ps( b._vdata, b._vdata,0xb1 );
+  //__m512 t = _mm512_fmaddsub_ps( a_vec_im, b_perm, res._vdata);
+  //res._vdata = _mm512_fmaddsub_ps( a_vec_re, b._vdata, t );
+}
+
+  template<>
+KOKKOS_FORCEINLINE_FUNCTION
+void
+  ComplexConjMadd<float,8,SIMDComplex,SIMDComplex>(SIMDComplex<float,8>& res, const MGComplex<float>& a,
+		const SIMDComplex<float,8>& b)
+{
+  vec512 a_vec_re = svdup_f32(a.real());
+  vec512 a_vec_im = svdup_f32(a.imag());
+  vec512 b_perm = svtbl_f32(b._vdata, m0xb1);
+  // fmsubadd:
+  // even: (a*b) + c
+  // odd:  (a*b) - c
+  // ...
+  vec512 t = svsel_f32(p0x44,
+		  svmad_f32_x(p0x44, a_vec_im, b_perm, res._vdata),
+		  svnmsb_f32_x(p0x11, a_vec_im, b_perm, res._vdata));
+  res._vdata = svsel_f32(p0x44,
+		  svmad_f32_x(p0x44, a_vec_re, b._vdata, t),
+		  svnmsb_f32_x(p0x11, a_vec_re, b._vdata, t));
+  //__m512 a_vec_re = _mm512_set1_ps( a.real() );
+  //__m512 a_vec_im = _mm512_set1_ps( a.imag() );
+  //__m512 b_perm = _mm512_shuffle_ps(b._vdata,b._vdata, 0xb1);
+  //__m512 t = _mm512_fmsubadd_ps(a_vec_im, b_perm, res._vdata);
+  //res._vdata = _mm512_fmsubadd_ps( a_vec_re, b._vdata, t);
+
+}
+
+
+template<>
+KOKKOS_FORCEINLINE_FUNCTION
+void
+ComplexCMadd<float,8,SIMDComplex,SIMDComplex,SIMDComplex>(SIMDComplex<float,8>& res,
+		      const SIMDComplex<float,8>& a,
+		      const SIMDComplex<float,8>& b)
+{
+  vec512 a_vec_re = svtbl_f32(a._vdata, m0xa0);
+  vec512 a_vec_im = svtbl_f32(a._vdata, m0xf5);
+  vec512 b_perm = svtbl_f32(b._vdata, m0xb1);
+  vec512 t =  svsel_f32(p0x44,
+		  svnmsb_f32_x(p0x44, a_vec_im, b_perm, res._vdata),
+		  svmad_f32_x(p0x11, a_vec_im, b_perm, res._vdata));
+  res._vdata = svsel_f32(p0x44,
+		  svnmsb_f32_x(p0x44, a_vec_re, b._vdata, t),
+		  svmad_f32_x(p0x11, a_vec_re, b._vdata, t));
+  //__m512 a_vec_re = _mm512_shuffle_ps( a._vdata, a._vdata, 0xa0 );
+  //__m512 a_vec_im = _mm512_shuffle_ps( a._vdata, a._vdata, 0xf5 );
+  //__m512 b_perm = _mm512_shuffle_ps( b._vdata, b._vdata,0xb1 );
+  //__m512 t = _mm512_fmaddsub_ps( a_vec_im, b_perm, res._vdata);
+  //res._vdata = _mm512_fmaddsub_ps( a_vec_re, b._vdata, t );
+}
+
+template<>
+KOKKOS_FORCEINLINE_FUNCTION
+void
+ComplexConjMadd<float,8,SIMDComplex,SIMDComplex,SIMDComplex>(SIMDComplex<float,8>& res,
+		const SIMDComplex<float,8>& a,
+		const SIMDComplex<float,8>& b)
+{
+  vec512 a_vec_re = svtbl_f32(a._vdata, m0xa0);
+  vec512 a_vec_im = svtbl_f32(a._vdata, m0xf5);
+  vec512 b_perm = svtbl_f32(b._vdata, m0xb1);
+  vec512 t =  svsel_f32(p0x44,
+		  svmad_f32_x(p0x44, a_vec_im, b_perm, res._vdata),
+		  svnmsb_f32_x(p0x11, a_vec_im, b_perm, res._vdata));
+  res._vdata = svsel_f32(p0x44,
+		  svmad_f32_x(p0x44, a_vec_re, b._vdata, t),
+		  svnmsb_f32_x(p0x11, a_vec_re, b._vdata, t));
+  //__m512 a_vec_re = _mm512_shuffle_ps( a._vdata, a._vdata, 0xa0 );
+  //__m512 a_vec_im = _mm512_shuffle_ps( a._vdata, a._vdata, 0xf5 );
+  //__m512 b_perm = _mm512_shuffle_ps(b._vdata,b._vdata, 0xb1);
+  //__m512 t = _mm512_fmsubadd_ps(a_vec_im, b_perm, res._vdata);
+  //res._vdata = _mm512_fmsubadd_ps( a_vec_re, b._vdata, t);
+
+}
+
+template<>
+KOKKOS_FORCEINLINE_FUNCTION
+void A_add_sign_iB<float,8,SIMDComplex,SIMDComplex,SIMDComplex>( SIMDComplex<float,8>& res,
+			     const SIMDComplex<float,8>& a,
+			     const float& sign,
+			     const SIMDComplex<float,8>& b)
+{
+  vec512 perm_b = svtbl_f32(b._vdata, m0xb1);
+  vec512 sgnvec =  svdup_f32(sign);
+  res._vdata = svmul_f32_x(p_all, sgnvec, svsel_f32(p0x44,
+			  svnmsb_f32_x(p0x44, sgnvec, a._vdata, perm_b),
+			  svmad_f32_x(p0x11, sgnvec, a._vdata, perm_b))
+			  );
+  // __m512 perm_b = _mm512_shuffle_ps( b._vdata, b._vdata, 0xb1);
+  // __m512 sgnvec = _mm512_set1_ps(sign);
+  // res._vdata = _mm512_mul_ps(sgnvec,_mm512_fmaddsub_ps( sgnvec, a._vdata, perm_b));
+}
+
+// sign == 1
+template<>
+KOKKOS_FORCEINLINE_FUNCTION
+  void A_add_sign_iB<float,8,SIMDComplex,SIMDComplex,SIMDComplex,1>( SIMDComplex<float,8>& res,
+								     const SIMDComplex<float,8>& a,
+								     const SIMDComplex<float,8>& b)
+{
+  vec512 perm_b = svtbl_f32(b._vdata, m0xb1);
+  res._vdata = svsel_f32(p0x44,
+		  svnmsb_f32_x(p0x44, svdup_f32(1.), a._vdata, perm_b),
+		  svmad_f32_x(p0x11, svdup_f32(1.), a._vdata, perm_b));
+  // __m512 perm_b = _mm512_shuffle_ps( b._vdata, b._vdata, 0xb1);
+  // res._vdata = _mm512_fmaddsub_ps( _mm512_set1_ps(1), a._vdata, perm_b);
+}
+
+// sign == -1
+template<>
+KOKKOS_FORCEINLINE_FUNCTION
+  void A_add_sign_iB<float,8,SIMDComplex,SIMDComplex,SIMDComplex,-1>( SIMDComplex<float,8>& res,
+								     const SIMDComplex<float,8>& a,
+								     const SIMDComplex<float,8>& b)
+{
+  vec512 perm_b = svtbl_f32(b._vdata, m0xb1);
+  res._vdata = svsel_f32(p0x44,
+		  svmad_f32_x(p0x44, svdup_f32(1.), a._vdata, perm_b),
+		  svnmsb_f32_x(p0x11, svdup_f32(1.), a._vdata, perm_b));
+  // __m512 perm_b = _mm512_shuffle_ps( b._vdata, b._vdata, 0xb1);
+  // res._vdata = _mm512_fmsubadd_ps( _mm512_set1_ps(1),a._vdata, perm_b);
+}
+
+
+// a = -i b
+template<>
+KOKKOS_FORCEINLINE_FUNCTION
+void A_peq_sign_miB<float,8,SIMDComplex,SIMDComplex>( SIMDComplex<float,8>& a,
+			      const float& sign,
+			      const SIMDComplex<float,8>& b)
+{
+  vec512 perm_b = svtbl_f32(b._vdata, m0xb1);
+  vec512 sgnvec =  svdup_f32(sign);
+  a._vdata = svmul_f32_x(p_all, sgnvec, svsel_f32(p0x44,
+			  svmad_f32_x(p0x44, sgnvec, a._vdata, perm_b),
+			  svnmsb_f32_x(p0x11, sgnvec, a._vdata, perm_b))
+			  );
+  // __m512 perm_b = _mm512_shuffle_ps( b._vdata, b._vdata, 0xb1);
+  // __m512 sgnvec =_mm512_set1_ps(sign);
+  // a._vdata = _mm512_mul_ps( sgnvec, _mm512_fmsubadd_ps(sgnvec, a._vdata, perm_b));
+}
+
+// a += -i b or a -= ib
+template<>
+KOKKOS_FORCEINLINE_FUNCTION
+void A_peq_sign_miB<float,8,SIMDComplex,SIMDComplex,1>( SIMDComplex<float,8>& a,
+							const SIMDComplex<float,8>& b)
+{
+  vec512 perm_b = svtbl_f32(b._vdata, m0xb1);
+  a._vdata = svsel_f32(p0x44,
+		  svmad_f32_x(p0x44, svdup_f32(1.), a._vdata, perm_b),
+		  svnmsb_f32_x(p0x11, svdup_f32(1.), a._vdata, perm_b));
+  // __m512 perm_b = _mm512_shuffle_ps( b._vdata, b._vdata, 0xb1);
+  // a._vdata = _mm512_fmsubadd_ps(_mm512_set1_ps(1),a._vdata, perm_b);;
+}
+
+// a -= -i b or a += ib
+template<>
+KOKKOS_FORCEINLINE_FUNCTION
+void A_peq_sign_miB<float,8,SIMDComplex,SIMDComplex,-1>( SIMDComplex<float,8>& a,
+							const SIMDComplex<float,8>& b)
+{
+  vec512 perm_b = svtbl_f32(b._vdata, m0xb1);
+  a._vdata = svsel_f32(p0x44,
+		  svnmsb_f32_x(p0x44, svdup_f32(1.), a._vdata, perm_b),
+		  svmad_f32_x(p0x11, svdup_f32(1.), a._vdata, perm_b));
+  // __m512 perm_b = _mm512_shuffle_ps( b._vdata, b._vdata, 0xb1);
+  // a._vdata = _mm512_fmaddsub_ps(_mm512_set1_ps(1),a._vdata, perm_b);;
+}
+
+#endif
+
 
 } // namespace
 

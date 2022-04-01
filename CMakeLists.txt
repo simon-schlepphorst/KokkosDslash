@@ -20,7 +20,7 @@ option(MG_FORTRANLIKE_COMPLEX "Fortran like complex ordering (r,i,r,i,...r,i) fo
 
 # Kokkos-Dslash specific options
 option(MG_USE_AVX512 "Use AVX512 intrinsics" FALSE)
-option(MG_USE_AVX2 "Use AVX512 intrinsics" TRUE)
+option(MG_USE_AVX2 "Use AVX2 intrinsics" TRUE)
 option(MG_USE_SVE512 "USE ARM SVE512 (intrinsics not yet)" FALSE)
 option(MG_KOKKOS_USE_CUDA "Use CUDA" FALSE)
 option(MG_KOKKOS_USE_FLAT_DISPATCH "Flat parallel for..." FALSE)
@@ -33,13 +33,14 @@ if( MG_USE_AVX512 )
 	message(STATUS "Using AVX512")
 endif()
 
-
 if( MG_USE_AVX2 )
 	message(STATUS "Using AVX2")
 endif()
 
 if( MG_USE_SVE512 )
 	message(STATUS "Using SVE512")
+	# maybe add the following?
+	# add_compile_definitions(__ARM_FEATRUE_SVE_BITS=512)
 endif()
 
 # Find OpenMP for backward compatibiliy

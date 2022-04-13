@@ -21,7 +21,7 @@ option(MG_FORTRANLIKE_COMPLEX "Fortran like complex ordering (r,i,r,i,...r,i) fo
 # Kokkos-Dslash specific options
 option(MG_USE_AVX512 "Use AVX512 intrinsics" FALSE)
 option(MG_USE_AVX2 "Use AVX2 intrinsics" TRUE)
-option(MG_USE_SVE512 "USE ARM SVE512 (intrinsics not yet)" FALSE)
+option(MG_USE_SVE512 "Use ARM SVE 512bit intrinsics" FALSE)
 option(MG_KOKKOS_USE_CUDA "Use CUDA" FALSE)
 option(MG_KOKKOS_USE_FLAT_DISPATCH "Flat parallel for..." FALSE)
 option(MG_KOKKOS_USE_TEAM_DISPATCH "Team based parallel for" FALSE)

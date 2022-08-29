@@ -89,11 +89,9 @@ TEST(TestKokkos, TestDslashTime) {
             timer.reset();
             for (int i = 0; i < titers; ++i) {
               D(in_spinor, kokkos_gauge, out_spinor, isign, {x, y, z, t});
+              Kokkos::fence();
             }
 
-#if defined(MG_USE_CUDA) || defined(MG_USE_HIP)
-            Kokkos::fence();
-#endif
             double time_taken = timer.seconds();
             double flops    = static_cast<double>(1320.0 * num_sites * titers);
             double floprate = flops / (time_taken * 1.0e9);

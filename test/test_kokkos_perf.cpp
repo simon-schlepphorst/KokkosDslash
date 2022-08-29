@@ -460,6 +460,7 @@ TEST(TestKokkos, TestDslashVec) {
 }
 #endif
 
+#if 0
 #if defined(MG_USE_AVX512) || defined(MG_USE_AVX2) || defined(MG_USE_CUDA) || \
     defined(MG_USE_SVE512)
 TEST(TestKokkos, TestDslashVecLonger) {
@@ -539,4 +540,5 @@ TEST(TestKokkos, TestDslashVecLonger) {
     // }
   }
 }
+#endif
 #endif

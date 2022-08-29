@@ -131,10 +131,8 @@ TEST(TestKokkos, TestDslashTime) {
     timer.reset();
     for (int i = 0; i < iters; ++i) {
       D(in_spinor, kokkos_gauge, out_spinor, isign, best_blocks);
+      Kokkos::fence();
     }
-#if defined(MG_USE_CUDA) || defined(MG_USE_HIP)
-    //	  Kokkos::fence();
-#endif
 
     double time_taken = timer.seconds();
 

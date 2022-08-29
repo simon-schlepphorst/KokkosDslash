@@ -23,9 +23,14 @@ option(MG_USE_AVX512 "Use AVX512 intrinsics" FALSE)
 option(MG_USE_AVX2 "Use AVX2 intrinsics" TRUE)
 option(MG_USE_SVE512 "Use ARM SVE 512bit intrinsics" FALSE)
 option(MG_KOKKOS_USE_CUDA "Use CUDA" FALSE)
+
+# not in use:
 option(MG_KOKKOS_USE_FLAT_DISPATCH "Flat parallel for..." FALSE)
+# use MG_FLAT_PARELLEL_DSLASH
 option(MG_KOKKOS_USE_TEAM_DISPATCH "Team based parallel for" FALSE)
+# default
 option(MG_KOKKOS_USE_MDRANGE_DISPATCH "MDRange based parallel for" FALSE)
+# use MG_KOKKOS_USE_MDRANGE
 
 option(MG_KOKKOS_USE_NEIGHBOR_TABLE "Should we compute neighbor index or use a table" TRUE)
 

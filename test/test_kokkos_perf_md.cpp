@@ -23,9 +23,11 @@ using namespace MG;
 using namespace MGTesting;
 using namespace QDP;
 
+constexpr int L = 32;
+
 TEST(TestKokkos, TestDslashTime) {
-  IndexArray latdims = {{32, 32, 32, 32}};
-  int iters          = 200;
+  IndexArray latdims = {{L, L, L, 4 * L}};
+  int iters          = 20;
 
   initQDPXXLattice(latdims);
   multi1d<LatticeColorMatrix> gauge_in(n_dim);
@@ -66,7 +68,7 @@ TEST(TestKokkos, TestDslashTime) {
 
   Kokkos::Timer timer;
 #if 1
-  int titers             = 50;
+  int titers             = 10;
   double best_flops      = 0;
   IndexArray best_blocks = {1, 1, 1, 1};
   for (IndexType t = cb_latdims[3]; t >= 1; t /= 2) {

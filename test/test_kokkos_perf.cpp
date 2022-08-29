@@ -27,8 +27,10 @@ constexpr int L = 32;
 
 #if defined(MG_USE_CUDA) || defined(MG_USE_HIP)
 constexpr static int V = 16;
-#else
+#elif defined(MG_USE_AVX512) || defined(MG_USE_SVE512)
 constexpr static int V = 8;
+#else
+constexpr static int V = 4;
 #endif
 #if 0
 TEST(TestKokkos, TestSpinProject)
@@ -303,7 +305,7 @@ TEST(TestKokkos, TestMultHalfSpinor)
 
 #if 1
 TEST(TestKokkos, TestDslash) {
-  IndexArray latdims = {{L, L, L, L}};
+  IndexArray latdims = {{L, L, L, 4 * L}};
   int iters          = 20;
 
   initQDPXXLattice(latdims);
@@ -333,7 +335,7 @@ TEST(TestKokkos, TestDslash) {
     // QDP++ LatticeFermionF should go away here.
   }
 
-  for (int sites_per_team = 8; sites_per_team < 8192; sites_per_team *= 2) {
+  for (int sites_per_team = 1; sites_per_team < 8192; sites_per_team *= 2) {
     // int sites_per_team=32;
 
     KokkosDslash<MGComplex<REAL32>, MGComplex<REAL32>, MGComplex<REAL32>> D(
@@ -379,90 +381,94 @@ TEST(TestKokkos, TestDslash) {
 }
 #endif
 
-#if 0
-TEST(TestKokkos, TestDslashVec)
-{
-  IndexArray latdims={{16,16,16,32}};
+#if 1
+TEST(TestKokkos, TestDslashVec) {
+  IndexArray latdims = {{L, L, L, 4 * L}};
 
 #ifdef MG_USE_AVX512
-	int iters = 1000;
-#else 
-	int iters = 100;
+  int iters = 1000;
+#else
+  int iters = 20;
 #endif
 
-	initQDPXXLattice(latdims);
-	LatticeInfo info(latdims,4,3,NodeInfo());
-	KokkosFineGaugeField<MGComplex<REAL32>>  kokkos_gauge(info);
+  initQDPXXLattice(latdims);
+  LatticeInfo info(latdims, 4, 3, NodeInfo());
+  KokkosFineGaugeField<MGComplex<REAL32>> kokkos_gauge(info);
 
-	{
-	  multi1d<LatticeColorMatrixF> gauge_in(n_dim);
-	  for(int mu=0; mu < n_dim; ++mu) {
-	    gaussian(gauge_in[mu]);
-	    reunit(gauge_in[mu]);
-	  }
+  {
+    multi1d<LatticeColorMatrixF> gauge_in(n_dim);
+    for (int mu = 0; mu < n_dim; ++mu) {
+      gaussian(gauge_in[mu]);
+      reunit(gauge_in[mu]);
+    }
 
-	  // Import gauge field
-	  QDPGaugeFieldToKokkosGaugeField(gauge_in, kokkos_gauge);
-	  // QDP Gauge field ought to go away here
+    // Import gauge field
+    QDPGaugeFieldToKokkosGaugeField(gauge_in, kokkos_gauge);
+    // QDP Gauge field ought to go away here
+  }
 
-	}
+  KokkosCBFineSpinor<SIMDComplex<REAL32, V>, 4> kokkos_spinor_in(info, EVEN);
+  KokkosCBFineSpinor<SIMDComplex<REAL32, V>, 4> kokkos_spinor_out(info, ODD);
+  {
+    multi1d<LatticeFermionF> psi_in(V);
 
+    for (int v = 0; v < V; ++v) {
+      gaussian(psi_in[v]);
+    }
+    // Import Spinor
+    QDPLatticeFermionToKokkosCBSpinor(psi_in, kokkos_spinor_in);
+    // QDP++ LatticeFermionF should go away here.
+  }
 
-	KokkosCBFineSpinor<SIMDComplex<REAL32,V>,4> kokkos_spinor_in(info,EVEN);
-	KokkosCBFineSpinor<SIMDComplex<REAL32,V>,4> kokkos_spinor_out(info,ODD);
-	{
-	  multi1d<LatticeFermionF> psi_in(V);
+  for (int per_team = 1; per_team < 512; per_team *= 2) {
+    KokkosDslash<MGComplex<REAL32>, SIMDComplex<REAL32, V>,
+                 ThreadSIMDComplex<REAL32, V>>
+        D(info, per_team);
+    for (int rep = 0; rep < 10; ++rep) {
+      int isign = 1;
+      // for(int isign=-1; isign < 2; isign+=2) {
+      MasterLog(INFO, "Sites per Team=%d Timing Dslash: isign == %d", per_team,
+                isign);
+      double start_time = omp_get_wtime();
+      for (int i = 0; i < iters; ++i) {
+        D(kokkos_spinor_in, kokkos_gauge, kokkos_spinor_out, isign);
+        Kokkos::fence();
+      }
+      double end_time   = omp_get_wtime();
+      double time_taken = end_time - start_time;
 
-	  for(int v=0; v < V; ++v) {
-		  gaussian(psi_in[v]);
-	  }
-	  // Import Spinor
-	  QDPLatticeFermionToKokkosCBSpinor(psi_in, kokkos_spinor_in);
-	  // QDP++ LatticeFermionF should go away here.
-	}
+      double rfo       = 1.0;
+      double num_sites = static_cast<double>((latdims[0] / 2) * latdims[1] *
+                                             latdims[2] * latdims[3]);
+      double bytes_in =
+          static_cast<double>((8 * 4 * 3 * 2 * sizeof(REAL32) * V +
+                               8 * 3 * 3 * 2 * sizeof(REAL32)) *
+                              num_sites * iters);
+      double bytes_out =
+          (1.0 + rfo) * static_cast<double>(V * 4 * 3 * 2 * sizeof(REAL32) *
+                                            num_sites * iters);
+      double flops = static_cast<double>(1320.0 * V * num_sites * iters);
 
+      MasterLog(INFO, "Sites Per Team=%d Performance: %lf GFLOPS", per_team,
+                flops / (time_taken * 1.0e9));
+      MasterLog(INFO, "Sites Per Team=%d Effective BW: %lf GB/sec", per_team,
+                (bytes_in + bytes_out) / (time_taken * 1.0e9));
 
-	for(int per_team=1; per_team < 512; per_team *= 2) {
-
-	KokkosDslash<MGComplex<REAL32>,SIMDComplex<REAL32,V>,ThreadSIMDComplex<REAL32,V>> D(info,per_team);
-	for(int rep=0; rep < 1; ++rep) {
-          int isign=1;
-	  //for(int isign=-1; isign < 2; isign+=2) {
-	    MasterLog(INFO, "Sites per Team=%d Timing Dslash: isign == %d", per_team, isign);
-	    double start_time = omp_get_wtime();
-	    for(int i=0; i < iters; ++i) {
-	      D(kokkos_spinor_in,kokkos_gauge,kokkos_spinor_out,isign);
-	    }
-	    double end_time = omp_get_wtime();
-	    double time_taken = end_time - start_time;
-
-	    double rfo = 1.0;
-	    double num_sites = static_cast<double>((latdims[0]/2)*latdims[1]*latdims[2]*latdims[3]);
-	    double bytes_in = static_cast<double>((8*4*3*2*sizeof(REAL32)*V+8*3*3*2*sizeof(REAL32))*num_sites*iters);
-	    double bytes_out = (1.0+rfo)*static_cast<double>(V*4*3*2*sizeof(REAL32)*num_sites*iters);
-	    double flops = static_cast<double>(1320.0*V*num_sites*iters);
-
-	    MasterLog(INFO,"Sites Per Team=%d Performance: %lf GFLOPS", per_team, flops/(time_taken*1.0e9));
-	    MasterLog(INFO,"Sites Per Team=%d Effective BW: %lf GB/sec", per_team, (bytes_in+bytes_out)/(time_taken*1.0e9));
-
-
-
-	  // }
-	}
-	}
-
+      // }
+    }
+  }
 }
 #endif
 
 #if defined(MG_USE_AVX512) || defined(MG_USE_AVX2) || defined(MG_USE_CUDA) || \
     defined(MG_USE_SVE512)
 TEST(TestKokkos, TestDslashVecLonger) {
-  IndexArray latdims = {{16, 16, 16, 32}};
+  IndexArray latdims = {{L, L, L, 4 * L}};
 
 #ifdef MG_USE_AVX512
   int iters = 2000;
 #else
-  int iters = 100;
+  int iters = 20;
 #endif
 
   initQDPXXLattice(latdims);
@@ -508,8 +514,8 @@ TEST(TestKokkos, TestDslashVecLonger) {
     auto start_time = std::clock();
     for (int i = 0; i < iters; ++i) {
       D(kokkos_spinor_in, kokkos_gauge, kokkos_spinor_out, isign);
+      Kokkos::fence();
     }
-    Kokkos::fence();
 
     auto end_time     = std::clock();
     double time_taken = (double)(end_time - start_time) / CLOCKS_PER_SEC;

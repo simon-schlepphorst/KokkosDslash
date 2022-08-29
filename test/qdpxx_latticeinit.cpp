@@ -13,18 +13,16 @@
 
 using namespace QDP;
 
-
 namespace MGTesting {
-void initQDPXXLattice(const IndexArray& latdims )
-{
-	NodeInfo node;
-	LatticeInfo tmp_info(latdims,4,3,node);
-	IndexArray gdims;
-	tmp_info.LocalDimsToGlobalDims(gdims,latdims);
+void initQDPXXLattice(const IndexArray& latdims) {
+  NodeInfo node;
+  LatticeInfo tmp_info(latdims, 4, 3, node);
+  IndexArray gdims;
+  tmp_info.LocalDimsToGlobalDims(gdims, latdims);
 
-	multi1d<int> nrow(n_dim);
-	for(int i=0; i < n_dim; ++i) nrow[i] =gdims[i];
-	Layout::setLattSize(nrow);
-	Layout::create();
+  multi1d<int> nrow(n_dim);
+  for (int i = 0; i < n_dim; ++i) nrow[i] = gdims[i];
+  Layout::setLattSize(nrow);
+  Layout::create();
 }
-}
+}  // namespace MGTesting

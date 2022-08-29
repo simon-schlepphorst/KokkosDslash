@@ -11,7 +11,7 @@
 #include "lattice/constants.h"
 
 namespace MGTesting {
-	void initQDPXXLattice(const MG::IndexArray& latdims);
+void initQDPXXLattice(const MG::IndexArray& latdims);
 };
 
 #endif /* TEST_QDPXX_QDPXX_LATTICEINIT_H_ */

@@ -20,80 +20,74 @@ using namespace MG;
 using namespace MGTesting;
 using namespace QDP;
 
-
-#if defined( MG_USE_CUDA ) || defined( MG_USE_HIP) 
+#if defined(MG_USE_CUDA) || defined(MG_USE_HIP)
 static constexpr int V = 1;
 #else
 
 #if defined(MG_USE_AVX512) || defined(MG_USE_AVX2)
 #ifdef MG_USE_AVX512
-static constexpr int V=8;
-#endif // AVX512
+static constexpr int V = 8;
+#endif  // AVX512
 #ifdef MG_USE_AVX2
-static constexpr int V=4;
-#endif // AVX2
-#else // else no AVX
-static constexpr int V=8;
-#endif // if defined....
+static constexpr int V = 4;
+#endif  // AVX2
+#else   // else no AVX
+static constexpr int V = 8;
+#endif  // if defined....
 
-#endif // KOKKOS_HAVE_QUDA
+#endif  // KOKKOS_HAVE_QUDA
 
 using namespace QDP;
 using namespace MG;
 using namespace MGTesting;
 
-TEST(TestKokkos, TestDslashTime)
-{
-	IndexArray latdims={{32,32,32,32}};
-	int iters=1000;
+TEST(TestKokkos, TestDslashTime) {
+  IndexArray latdims = {{32, 32, 32, 32}};
+  int iters          = 1000;
 
-	initQDPXXLattice(latdims);
-	multi1d<LatticeColorMatrix> gauge_in(n_dim);
-	for(int mu=0; mu < n_dim; ++mu) {
-		gaussian(gauge_in[mu]);
-		reunit(gauge_in[mu]);
-	}
+  initQDPXXLattice(latdims);
+  multi1d<LatticeColorMatrix> gauge_in(n_dim);
+  for (int mu = 0; mu < n_dim; ++mu) {
+    gaussian(gauge_in[mu]);
+    reunit(gauge_in[mu]);
+  }
 
-	LatticeFermion psi_in=zero;
-	gaussian(psi_in);
+  LatticeFermion psi_in = zero;
+  gaussian(psi_in);
 
-	LatticeInfo info(latdims,4,3,NodeInfo());
+  LatticeInfo info(latdims, 4, 3, NodeInfo());
 
-	using VN = VNode<MGComplex<REAL32>,V>;
-	using SpinorType = KokkosCBFineVSpinor<MGComplex<REAL32>,VN,4>;
-	using FullGaugeType = KokkosFineVGaugeField<MGComplex<REAL32>,VN>;
-	using GaugeType = KokkosCBFineVGaugeFieldDoubleCopy<MGComplex<REAL32>,VN>;
+  using VN            = VNode<MGComplex<REAL32>, V>;
+  using SpinorType    = KokkosCBFineVSpinor<MGComplex<REAL32>, VN, 4>;
+  using FullGaugeType = KokkosFineVGaugeField<MGComplex<REAL32>, VN>;
+  using GaugeType = KokkosCBFineVGaugeFieldDoubleCopy<MGComplex<REAL32>, VN>;
 
-	SpinorType  kokkos_spinor_even(info,EVEN);
-	SpinorType  kokkos_spinor_odd(info,ODD);
-	FullGaugeType  kokkos_gauge(info);
+  SpinorType kokkos_spinor_even(info, EVEN);
+  SpinorType kokkos_spinor_odd(info, ODD);
+  FullGaugeType kokkos_gauge(info);
 
+  // Import Gauge Field
+  QDPGaugeFieldToKokkosVGaugeField(gauge_in, kokkos_gauge);
 
+  // Double Store Gauge field. This benchmark is always even cb.
+  GaugeType gauge_even(info, EVEN);
 
-	// Import Gauge Field
-	QDPGaugeFieldToKokkosVGaugeField(gauge_in, kokkos_gauge);
+  // Import gets the rear neighbors, and permutes them if needed
+  import(gauge_even, kokkos_gauge(EVEN), kokkos_gauge(ODD));
 
+  // Import spinor
+  QDPLatticeFermionToKokkosCBVSpinor(psi_in, kokkos_spinor_even);
 
-	// Double Store Gauge field. This benchmark is always even cb.
-	GaugeType  gauge_even(info,EVEN);
+  // for(int per_team=1; per_team < 256; per_team *=2 ) {
 
+  KokkosVDslash<VN, MGComplex<REAL32>, MGComplex<REAL32>,
+                SIMDComplex<REAL32, VN::VecLen>,
+                SIMDComplex<REAL32, VN::VecLen> >
+      D(kokkos_spinor_even.GetInfo());
 
-	// Import gets the rear neighbors, and permutes them if needed
-	import(gauge_even,  kokkos_gauge(EVEN), kokkos_gauge(ODD));
-
-	// Import spinor
-	QDPLatticeFermionToKokkosCBVSpinor(psi_in, kokkos_spinor_even);
-
-	// for(int per_team=1; per_team < 256; per_team *=2 ) {
-
-	KokkosVDslash<VN,
-	MGComplex<REAL32>,
-	MGComplex<REAL32>,
-	SIMDComplex<REAL32,VN::VecLen>,
-		      SIMDComplex<REAL32,VN::VecLen> > D(kokkos_spinor_even.GetInfo());
-
-	IndexArray cb_latdims = kokkos_spinor_even.GetInfo().GetCBLatticeDimensions();
-	double num_sites = static_cast<double>(V*cb_latdims[0]*cb_latdims[1]*cb_latdims[2]*cb_latdims[3]);
+  IndexArray cb_latdims = kokkos_spinor_even.GetInfo().GetCBLatticeDimensions();
+  double num_sites = static_cast<double>(V * cb_latdims[0] * cb_latdims[1] *
+                                         cb_latdims[2] * cb_latdims[3]);
 
 #if 0
 	int titers=20;
@@ -109,8 +103,8 @@ TEST(TestKokkos, TestDslashTime)
 					num_blocks *= cb_latdims[1]/y;
 					num_blocks *= cb_latdims[2]/z;
 					num_blocks *= cb_latdims[3]/t;
-#if defined( MG_USE_CUDA ) || defined(MG_USE_HIP) 
-					if( x*y*z*t <= 256) { 
+#if defined(MG_USE_CUDA) || defined(MG_USE_HIP) 
+					if( x*y*z*t <= 256) {
 #else
 					if ( num_blocks <= 256) {
 #endif
@@ -118,7 +112,7 @@ TEST(TestKokkos, TestDslashTime)
 						for(int i=0; i < titers; ++i) {
 						  D(kokkos_spinor_even,gauge_even,kokkos_spinor_odd,isign,{x,y,z,t});
 						}
-#if defined(  MG_USE_CUDA ) || defined (MG_USE_HIP )
+#if defined(MG_USE_CUDA) || defined(MG_USE_HIP)
 						Kokkos::fence();
 #endif
 						auto end_time = std::clock();
@@ -142,48 +136,50 @@ TEST(TestKokkos, TestDslashTime)
 	}
 #else
 
-#if defined ( MG_USE_CUDA ) || defined (MG_USE_HIP)
-        IndexArray best_blocks={16,4,1,2};
+#if defined(MG_USE_CUDA) || defined(MG_USE_HIP)
+  IndexArray best_blocks = {16, 4, 1, 2};
 #else
-	IndexArray best_blocks={4,2,2,16};
-#endif // MG_USE_CUDA
-
+  IndexArray best_blocks = {4, 2, 2, 16};
+#endif  // MG_USE_CUDA
 
 #endif
-	MasterLog(INFO, "Main timing: (Bx,By,Bz,Bt)=(%d,%d,%d,%d)",
-				best_blocks[0],best_blocks[1],best_blocks[2],best_blocks[3]);
+  MasterLog(INFO, "Main timing: (Bx,By,Bz,Bt)=(%d,%d,%d,%d)", best_blocks[0],
+            best_blocks[1], best_blocks[2], best_blocks[3]);
 
-	for(int rep=0; rep < 10; ++rep ) {
-		int isign = 1;
-		//for(int isign=-1; isign < 2; isign+=2) {
-			// Time it.
-			auto start_time = std::clock();
+  for (int rep = 0; rep < 10; ++rep) {
+    int isign = 1;
+    // for(int isign=-1; isign < 2; isign+=2) {
+    //  Time it.
+    auto start_time = std::clock();
 
-			for(int i=0; i < iters; ++i) {
-				D(kokkos_spinor_even,gauge_even,kokkos_spinor_odd,isign, best_blocks);
-			}
-#if defined (MG_USE_CUDA) || defined(MG_USE_HIP) 
-			Kokkos::fence();
+    for (int i = 0; i < iters; ++i) {
+      D(kokkos_spinor_even, gauge_even, kokkos_spinor_odd, isign, best_blocks);
+    }
+#if defined(MG_USE_CUDA) || defined(MG_USE_HIP)
+    Kokkos::fence();
 #endif
-			auto end_time = std::clock();
-			double time_taken = (double)(end_time - start_time)/CLOCKS_PER_SEC;
+    auto end_time     = std::clock();
+    double time_taken = (double)(end_time - start_time) / CLOCKS_PER_SEC;
 
-			double rfo = 1.0;
-			double num_sites = static_cast<double>((latdims[0]/2)*latdims[1]*latdims[2]*latdims[3]);
-			double bytes_in = static_cast<double>((8*4*3*2*sizeof(REAL32)+8*3*3*2*sizeof(REAL32))*num_sites*iters);
-			double bytes_out = static_cast<double>(4*3*2*sizeof(REAL32)*num_sites*iters);
-			double rfo_bytes_out = (1.0 + rfo)*bytes_out;
-			double flops = static_cast<double>(1320.0*num_sites*iters);
+    double rfo       = 1.0;
+    double num_sites = static_cast<double>((latdims[0] / 2) * latdims[1] *
+                                           latdims[2] * latdims[3]);
+    double bytes_in  = static_cast<double>(
+        (8 * 4 * 3 * 2 * sizeof(REAL32) + 8 * 3 * 3 * 2 * sizeof(REAL32)) *
+        num_sites * iters);
+    double bytes_out =
+        static_cast<double>(4 * 3 * 2 * sizeof(REAL32) * num_sites * iters);
+    double rfo_bytes_out = (1.0 + rfo) * bytes_out;
+    double flops         = static_cast<double>(1320.0 * num_sites * iters);
 
-			MasterLog(INFO,"isign=%d Performance: %lf GFLOPS", isign, flops/(time_taken*1.0e9));
-			MasterLog(INFO,"isign=%d Effective BW (RFO=0): %lf GB/sec",isign, (bytes_in+bytes_out)/(time_taken*1.0e9));
-			MasterLog(INFO,"isign=%d Effective BW (RFO=1): %lf GB/sec",  isign, (bytes_in+rfo_bytes_out)/(time_taken*1.0e9));
+    MasterLog(INFO, "isign=%d Performance: %lf GFLOPS", isign,
+              flops / (time_taken * 1.0e9));
+    MasterLog(INFO, "isign=%d Effective BW (RFO=0): %lf GB/sec", isign,
+              (bytes_in + bytes_out) / (time_taken * 1.0e9));
+    MasterLog(INFO, "isign=%d Effective BW (RFO=1): %lf GB/sec", isign,
+              (bytes_in + rfo_bytes_out) / (time_taken * 1.0e9));
 
-
-
-		// } // isign
-		MasterLog(INFO,"");
-	} // rep
+    // } // isign
+    MasterLog(INFO, "");
+  }  // rep
 }
-
-

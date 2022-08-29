@@ -11,8 +11,7 @@ namespace MGTesting {
 void reunit(LatticeColorMatrixF& a);
 void reunit(LatticeColorMatrixD& a);
 
-};
-
+};  // namespace MGTesting
 
 // End of Include guard
 #endif

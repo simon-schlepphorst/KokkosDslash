@@ -11,5 +11,4 @@
 #include "qdpxx_latticeinit.h"
 #include "reunit.h"
 
-
 #endif /* TEST_QDPXX_QDPXX_UTILS_H_ */

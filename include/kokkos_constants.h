@@ -11,6 +11,4 @@
 #define K_RE 0
 #define K_IM 1
 
-
-
 #endif /* TEST_KOKKOS_KOKKOS_CONSTANTS_H_ */

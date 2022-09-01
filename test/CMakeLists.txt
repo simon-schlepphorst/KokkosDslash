@@ -62,5 +62,5 @@ else()
 package_add_test(test_kokkos_perf test_kokkos_perf.cpp)
 endif()
 
-package_add_test(test_kokkos_perf_fp test_kokkos_perf_fp.cpp)
-package_add_test(test_kokkos_perf_fpv test_kokkos_perf_fpv.cpp)
+package_add_test(test_kokkos_perf_sweep test_kokkos_perf_sweep.cpp)
+package_add_test(test_kokkos_perf_vecsweep test_kokkos_perf_vecsweep.cpp)

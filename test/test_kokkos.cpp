@@ -1126,8 +1126,12 @@ TEST(TestKokkos, TestDslashVec) {
         // Import
         QDPLatticeFermionToKokkosCBSpinor(psi_in, in_spinor);
 
-        // Vector Dslash
+// Vector Dslash
+#if defined(MG_KOKKOS_USE_MDRANGE)
+        D(in_spinor, kokkos_gauge, out_spinor, isign, {1, 1, 1, 1});
+#else
         D(in_spinor, kokkos_gauge, out_spinor, isign);
+#endif
 
         // Export
         KokkosCBSpinorToQDPLatticeFermion<>(out_spinor, kokkos_out);

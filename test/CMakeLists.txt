@@ -48,8 +48,10 @@ endmacro()
 # and ARGN is test1.cpp
 package_add_test(test_kokkos test_kokkos.cpp)
 
-#package_add_test(test_kokkos_vnode test_kokkos_vnode.cpp)
-#package_add_test(test_kokkos_vperf  test_kokkos_vperf.cpp)
+if( MG_KOKKOS_USE_MDRANGE OR MG_FLAT_PARALLEL_DSLASH)
+package_add_test(test_kokkos_vnode test_kokkos_vnode.cpp)
+package_add_test(test_kokkos_vperf  test_kokkos_vperf.cpp)
+endif()
 package_add_test(test_kokkos_vectype test_kokkos_vectype.cpp)
 
 if( MG_KOKKOS_USE_MDRANGE )

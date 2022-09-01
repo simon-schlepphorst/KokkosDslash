@@ -10,7 +10,7 @@
 #include "kokkos_vnode.h"
 #include "kokkos_vneighbor_table.h"
 
-#undef KOKKOS_USE_MDRANGE
+//#undef MG_KOKKOS_USE_MDRANGE
 namespace MG {
 
 template <typename T, typename VN, int _num_spins>
@@ -395,8 +395,8 @@ void import(KokkosCBFineVGaugeFieldDoubleCopy<T, VN>& target,
 #else
   Kokkos::parallel_for(
       num_cbsites, KOKKOS_LAMBDA(const int site) {
-        int xcb, y, z, t;
-        neigh_table.idx_to_coords(site, xcb, y, z, t);
+  // int xcb, y, z, t;
+  // neigh_table.idx_to_coords(site, xcb, y, z, t);
 #endif
 
         int n_idx;

@@ -19,20 +19,9 @@
 #include "kokkos_traits.h"
 #include "kokkos_vneighbor_table.h"
 
-#undef MG_KOKKOS_USE_MDRANGE
+//#undef MG_KOKKOS_USE_MDRANGE
 
 namespace MG {
-
-enum DirIdx {
-  T_MINUS = 0,
-  Z_MINUS = 1,
-  Y_MINUS = 2,
-  X_MINUS = 3,
-  X_PLUS  = 4,
-  Y_PLUS  = 5,
-  Z_PLUS  = 6,
-  T_PLUS  = 7
-};
 
 template <typename VN, typename GT, typename ST, typename TGT, typename TST,
           const int isign, const int target_cb>
@@ -50,8 +39,8 @@ struct VDslashFunctor {
 #else
   KOKKOS_FORCEINLINE_FUNCTION
   void operator()(const int site) const {
-    int xcb, y, z, t;
-    neigh_table.idx_to_coords(site, xcb, y, z, t);
+    // int xcb, y, z, t;
+    // neigh_table.idx_to_coords(site, xcb, y, z, t);
 #endif
     int n_idx;
     typename VN::MaskType mask;

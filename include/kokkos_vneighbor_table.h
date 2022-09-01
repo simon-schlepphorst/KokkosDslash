@@ -6,6 +6,17 @@
 
 namespace MG {
 
+enum DirIdx {
+  T_MINUS = 0,
+  Z_MINUS = 1,
+  Y_MINUS = 2,
+  X_MINUS = 3,
+  X_PLUS  = 4,
+  Y_PLUS  = 5,
+  Z_PLUS  = 6,
+  T_PLUS  = 7
+};
+
 #if defined(MG_KOKKOS_USE_NEIGHBOR_TABLE)
 template <typename VN>
 void ComputeSiteTable(

@@ -71,7 +71,7 @@ if( QDPXX_FOUND )
 endif() 
 
 if( MG_USE_CUDA ) 
-// pass
+# pass
 endif()
 
 # ignore warnings with CUDA

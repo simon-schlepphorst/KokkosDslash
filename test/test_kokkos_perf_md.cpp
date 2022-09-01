@@ -28,6 +28,7 @@ constexpr int L = 32;
 TEST(TestKokkos, TestDslashTime) {
   IndexArray latdims = {{L, L, L, 4 * L}};
   int iters          = 20;
+  int reps           = 50;
 
   initQDPXXLattice(latdims);
   multi1d<LatticeColorMatrix> gauge_in(n_dim);
@@ -68,7 +69,7 @@ TEST(TestKokkos, TestDslashTime) {
 
   Kokkos::Timer timer;
 #if 1
-  int titers             = 10;
+  int titers             = 20;
   double best_flops      = 0;
   IndexArray best_blocks = {1, 1, 1, 1};
   for (IndexType t = cb_latdims[3]; t >= 1; t /= 2) {
@@ -86,6 +87,11 @@ TEST(TestKokkos, TestDslashTime) {
 #else
           if (num_blocks <= 256) {
 #endif
+#if !defined(MG_USE_CUDA) && !defined(MG_USE_HIP)
+            // deal with jitter on CPU based systems
+            for (int rep = 0; rep < reps; ++rep)
+#endif
+            {
             timer.reset();
             for (int i = 0; i < titers; ++i) {
               D(in_spinor, kokkos_gauge, out_spinor, isign, {x, y, z, t});
@@ -93,10 +99,10 @@ TEST(TestKokkos, TestDslashTime) {
             }
 
             double time_taken = timer.seconds();
-            double flops    = static_cast<double>(1320.0 * num_sites * titers);
+              double flops = static_cast<double>(1320.0 * num_sites * titers);
             double floprate = flops / (time_taken * 1.0e9);
-            MasterLog(INFO, "Tuning: (Bx,By,Bz,Bt)=(%d,%d,%d,%d) GFLOPS=%lf", x,
-                      y, z, t, floprate);
+              MasterLog(INFO, "Tuning: (Bx,By,Bz,Bt)=(%d,%d,%d,%d) GFLOPS=%lf",
+                        x, y, z, t, floprate);
             if (floprate > best_flops) {
               best_flops     = floprate;
               best_blocks[0] = x;
@@ -108,6 +114,7 @@ TEST(TestKokkos, TestDslashTime) {
         }
       }
     }
+  }
   }
 #else
 
@@ -121,7 +128,7 @@ TEST(TestKokkos, TestDslashTime) {
   MasterLog(INFO, "Main timing: (Bx,By,Bz,Bt)=(%d,%d,%d,%d)", best_blocks[0],
             best_blocks[1], best_blocks[2], best_blocks[3]);
 
-  for (int rep = 0; rep < 10; ++rep) {
+  for (int rep = 0; rep < reps; ++rep) {
     int isign = 1;
     // for(int isign=-1; isign < 2; isign+=2) {
     //  Time it.

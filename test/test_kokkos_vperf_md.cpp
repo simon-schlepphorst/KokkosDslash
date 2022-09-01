@@ -20,30 +20,22 @@ using namespace MG;
 using namespace MGTesting;
 using namespace QDP;
 
+constexpr int L = 32;
+
 #if defined(MG_USE_CUDA) || defined(MG_USE_HIP)
-static constexpr int V = 1;
+constexpr static int V = 1;
+#elif defined(MG_USE_AVX512) || defined(MG_USE_SVE512)
+constexpr static int V = 8;
+#elif defined(MG_USE_AVX2)
+constexpr static int V = 4;
 #else
-
-#if defined(MG_USE_AVX512) || defined(MG_USE_AVX2)
-#ifdef MG_USE_AVX512
-static constexpr int V = 8;
-#endif  // AVX512
-#ifdef MG_USE_AVX2
-static constexpr int V = 4;
-#endif  // AVX2
-#else   // else no AVX
-static constexpr int V = 8;
-#endif  // if defined....
-
-#endif  // KOKKOS_HAVE_QUDA
-
-using namespace QDP;
-using namespace MG;
-using namespace MGTesting;
+constexpr static int V = MG_VECLEN_SP;
+#endif
 
 TEST(TestKokkos, TestDslashTime) {
-  IndexArray latdims = {{32, 32, 32, 32}};
-  int iters          = 1000;
+  IndexArray latdims = {{L, L, L, 4 * L}};
+  int iters          = 20;
+  int reps           = 50;
 
   initQDPXXLattice(latdims);
   multi1d<LatticeColorMatrix> gauge_in(n_dim);
@@ -78,8 +70,6 @@ TEST(TestKokkos, TestDslashTime) {
   // Import spinor
   QDPLatticeFermionToKokkosCBVSpinor(psi_in, kokkos_spinor_even);
 
-  // for(int per_team=1; per_team < 256; per_team *=2 ) {
-
   KokkosVDslash<VN, MGComplex<REAL32>, MGComplex<REAL32>,
                 SIMDComplex<REAL32, VN::VecLen>,
                 SIMDComplex<REAL32, VN::VecLen> >
@@ -89,51 +79,56 @@ TEST(TestKokkos, TestDslashTime) {
   double num_sites = static_cast<double>(V * cb_latdims[0] * cb_latdims[1] *
                                          cb_latdims[2] * cb_latdims[3]);
 
-#if 0
-	int titers=20;
-	double best_flops = 0;
-	IndexArray best_blocks={1,1,1,1};
-	for(IndexType t=cb_latdims[3]; t >= 1; t /= 2) {
-		for(IndexType z=cb_latdims[2]; z >= 1; z /= 2) {
-			for(IndexType y=cb_latdims[1]; y >= 1; y/=2 ) {
-				for(IndexType x = cb_latdims[0]; x >= 1; x/= 2 ) {
-					int isign=1;
-					IndexType num_blocks = 1;
-					num_blocks *= cb_latdims[0]/x;
-					num_blocks *= cb_latdims[1]/y;
-					num_blocks *= cb_latdims[2]/z;
-					num_blocks *= cb_latdims[3]/t;
-#if defined(MG_USE_CUDA) || defined(MG_USE_HIP) 
-					if( x*y*z*t <= 256) {
-#else
-					if ( num_blocks <= 256) {
-#endif
-					 	auto start_time = std::clock();
-						for(int i=0; i < titers; ++i) {
-						  D(kokkos_spinor_even,gauge_even,kokkos_spinor_odd,isign,{x,y,z,t});
-						}
+  Kokkos::Timer timer;
+#if 1
+  int titers             = 20;
+  double best_flops      = 0;
+  IndexArray best_blocks = {1, 1, 1, 1};
+  for (IndexType t = cb_latdims[3]; t >= 1; t /= 2) {
+    for (IndexType z = cb_latdims[2]; z >= 1; z /= 2) {
+      for (IndexType y = cb_latdims[1]; y >= 1; y /= 2) {
+        for (IndexType x = cb_latdims[0]; x >= 1; x /= 2) {
+          int isign            = 1;
+          IndexType num_blocks = 1;
+          num_blocks *= cb_latdims[0] / x;
+          num_blocks *= cb_latdims[1] / y;
+          num_blocks *= cb_latdims[2] / z;
+          num_blocks *= cb_latdims[3] / t;
 #if defined(MG_USE_CUDA) || defined(MG_USE_HIP)
-						Kokkos::fence();
+          if (x * y * z * t <= 256) {
+#else
+          if (num_blocks <= 256) {
 #endif
-						auto end_time = std::clock();
-						double time_taken = (double)(end_time - start_time)/CLOCKS_PER_SEC;
-						double flops = static_cast<double>(1320.0*num_sites*titers);
-						double floprate = flops/(time_taken*1.0e9);
-						MasterLog(INFO,"Tuning: (Bx,By,Bz,Bt)=(%d,%d,%d,%d) GFLOPS=%lf", x,y,z,t,floprate);
-						if (floprate > best_flops){
-							best_flops = floprate;
-							best_blocks[0]=x;
-							best_blocks[1]=y;
-							best_blocks[2]=z;
-							best_blocks[3]=t;
-						}
-					}
+#if !defined(MG_USE_CUDA) && !defined(MG_USE_HIP)
+            // deal with jitter on CPU based systems
+            for (int rep = 0; rep < reps; ++rep)
+#endif
+            {
+              timer.reset();
+              for (int i = 0; i < titers; ++i) {
+                D(kokkos_spinor_even, gauge_even, kokkos_spinor_odd, isign,
+                  {x, y, z, t});
+                Kokkos::fence();
+              }
 
-
-				}
-			}
-		}
-	}
+              double time_taken = timer.seconds();
+              double flops = static_cast<double>(1320.0 * num_sites * titers);
+              double floprate = flops / (time_taken * 1.0e9);
+              MasterLog(INFO, "Tuning: (Bx,By,Bz,Bt)=(%d,%d,%d,%d) GFLOPS=%lf",
+                        x, y, z, t, floprate);
+              if (floprate > best_flops) {
+                best_flops     = floprate;
+                best_blocks[0] = x;
+                best_blocks[1] = y;
+                best_blocks[2] = z;
+                best_blocks[3] = t;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 #else
 
 #if defined(MG_USE_CUDA) || defined(MG_USE_HIP)
@@ -150,16 +145,13 @@ TEST(TestKokkos, TestDslashTime) {
     int isign = 1;
     // for(int isign=-1; isign < 2; isign+=2) {
     //  Time it.
-    auto start_time = std::clock();
 
+    timer.reset();
     for (int i = 0; i < iters; ++i) {
       D(kokkos_spinor_even, gauge_even, kokkos_spinor_odd, isign, best_blocks);
+      Kokkos::fence();
     }
-#if defined(MG_USE_CUDA) || defined(MG_USE_HIP)
-    Kokkos::fence();
-#endif
-    auto end_time     = std::clock();
-    double time_taken = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+    double time_taken = timer.seconds();
 
     double rfo       = 1.0;
     double num_sites = static_cast<double>((latdims[0] / 2) * latdims[1] *

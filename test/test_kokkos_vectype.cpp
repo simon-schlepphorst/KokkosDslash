@@ -346,20 +346,14 @@ TEST(TestVectype, Test_A_peq_sign_B_D4) {
 }
 
 /* --- FLOAT N tests --- */
-#ifdef MG_USE_AVX512
+#if defined(MG_USE_AVX512) || defined(MG_USE_SVE512)
 #define VLEN 8
-#endif
-
-#ifdef MG_USE_SVE512
-#define VLEN 8
-#endif
-
-#ifdef MG_USE_AVX2
+#elif defined(MG_USE_AVX2)
 #define VLEN 4
-#endif
-
-#ifdef MG_USE_CUDA
+#elif defined(MG_USE_CUDA) || defined(MG_USE_HIP)
 #define VLEN 1
+#else
+#define VLEN MG_VECLEN_SP
 #endif
 
 TEST(TestVectype, VectypeCreateFVLEN) { SIMDComplex<float, VLEN> v2; }

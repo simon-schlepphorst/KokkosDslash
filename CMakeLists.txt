@@ -20,7 +20,7 @@ option(MG_FORTRANLIKE_COMPLEX "Fortran like complex ordering (r,i,r,i,...r,i) fo
 
 # Kokkos-Dslash specific options
 option(MG_USE_AVX512 "Use AVX512 intrinsics" FALSE)
-option(MG_USE_AVX2 "Use AVX2 intrinsics" TRUE)
+option(MG_USE_AVX2 "Use AVX2 intrinsics" FALSE)
 option(MG_USE_SVE512 "Use ARM SVE 512bit intrinsics" FALSE)
 option(MG_KOKKOS_USE_CUDA "Use CUDA" FALSE)
 

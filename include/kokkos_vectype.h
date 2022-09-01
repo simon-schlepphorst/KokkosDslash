@@ -83,7 +83,7 @@ using ThreadSIMDComplex = SIMDComplex<T, N>;
 
 #if !defined(MG_USE_CUDA) && !defined(MG_USE_HIP)
 
-#if defined(MG_USE_AVX512) || defined(MG_USE_AVX2) || defined(MG_USE_SVE512)
+//#if defined(MG_USE_AVX512) || defined(MG_USE_AVX2) || defined(MG_USE_SVE512)
 // GENERAL THREADVECTORRANGE
 // T1 must support indexing with operator()
 template <typename T, int N, template <typename, int> class T1,
@@ -389,7 +389,7 @@ KOKKOS_FORCEINLINE_FUNCTION void A_peq_sign_B(T1<T, N>& a, const T2<T, N>& b) {
     a(i) = MGComplex<T>(res_re, res_im);
   });
 }
-#endif
+//#endif
 #else
 
 // Hacked for CUDA just work with thread IDX.x

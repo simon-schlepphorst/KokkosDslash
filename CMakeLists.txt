@@ -22,7 +22,8 @@ option(MG_FORTRANLIKE_COMPLEX "Fortran like complex ordering (r,i,r,i,...r,i) fo
 option(MG_USE_AVX512 "Use AVX512 intrinsics" FALSE)
 option(MG_USE_AVX2 "Use AVX2 intrinsics" FALSE)
 option(MG_USE_SVE512 "Use ARM SVE 512bit intrinsics" FALSE)
-option(MG_KOKKOS_USE_CUDA "Use CUDA" FALSE)
+option(MG_USE_CUDA "Use CUDA" FALSE)
+option(MG_USE_HIP "Use HIP" FALSE)
 
 # not in use:
 option(MG_KOKKOS_USE_FLAT_DISPATCH "Flat parallel for..." FALSE)
@@ -69,9 +70,8 @@ if( QDPXX_FOUND )
   endif()
 endif() 
 
-if( MG_KOKKOS_USE_CUDA ) 
-
-
+if( MG_USE_CUDA ) 
+// pass
 endif()
 
 # ignore warnings with CUDA

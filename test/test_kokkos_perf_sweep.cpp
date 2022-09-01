@@ -27,7 +27,11 @@ TEST(TestKokkos, TestDslashSweep) {
   const IndexType L_start = 16;
   const IndexType L_max   = 64;
   const int iters         = 10;  // iterations per timing
-  const int reps          = 5;   // repetitons of measurements
+#if defined(MG_USE_CUDA) || defined(MG_USE_HIP)
+  const int reps = 20;  // repetitons of measurements
+#else
+  const int reps = 50;
+#endif
 
   for (IndexType L = L_start; L <= L_max; L += 2) {
     IndexArray latdims = {{L, L, L, 4 * L}};

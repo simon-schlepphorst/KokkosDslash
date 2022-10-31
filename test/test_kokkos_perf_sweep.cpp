@@ -24,9 +24,9 @@ using namespace MGTesting;
 using namespace QDP;
 
 TEST(TestKokkos, TestDslashSweep) {
-  const IndexType L_start = 16;
+  const IndexType L_start = 4;
   const IndexType L_max   = 64;
-  const int iters         = 10;  // iterations per timing
+  const int default_iters = 10;  // iterations per timing
 #if defined(MG_USE_CUDA) || defined(MG_USE_HIP)
   const int reps = 20;  // repetitons of measurements
 #else
@@ -34,7 +34,7 @@ TEST(TestKokkos, TestDslashSweep) {
 #endif
 
   for (IndexType L = L_start; L <= L_max; L += 2) {
-    IndexArray latdims = {{L, L, L, 4 * L}};
+    IndexArray latdims = {{L, L, L, L}};
 
     initQDPXXLattice(latdims);
     LatticeInfo info(latdims, 4, 3, NodeInfo());
@@ -63,17 +63,9 @@ TEST(TestKokkos, TestDslashSweep) {
       // QDP++ LatticeFermionF should go away here.
     }
 
-    // Flops and Bandwidth calculations
-    double rfo       = 1.0;
+    // Flops and Bandwidth calculations 1
     double num_sites = static_cast<double>((latdims[0] / 2) * latdims[1] *
                                            latdims[2] * latdims[3]);
-    double bytes_in  = static_cast<double>(
-        (8 * 4 * 3 * 2 * sizeof(REAL32) + 8 * 3 * 3 * 2 * sizeof(REAL32)) *
-        num_sites * iters);
-    double bytes_out =
-        static_cast<double>(4 * 3 * 2 * sizeof(REAL32) * num_sites * iters);
-    double rfo_bytes_out = (1.0 + rfo) * bytes_out;
-    double flops         = static_cast<double>(1320.0 * num_sites * iters);
 
     MasterLog(
         INFO,
@@ -114,11 +106,39 @@ TEST(TestKokkos, TestDslashSweep) {
       KokkosDslash<MGComplex<REAL32>, MGComplex<REAL32>, MGComplex<REAL32>> D(
           info, sites_per_team);
 
+      Kokkos::Timer timer;
+      timer.reset();
+      int iters = 0;
+      while (timer.seconds() < 0.5) {
+        int isign = 1;
+#if defined(MG_KOKKOS_USE_MDRANGE)
+        D(kokkos_spinor_in, kokkos_gauge, kokkos_spinor_out, isign,
+          best_blocks);
+#else
+        D(kokkos_spinor_in, kokkos_gauge, kokkos_spinor_out, isign);
+#endif
+        Kokkos::fence();
+        iters += 1;
+      }
+      if (iters < default_iters) {
+        iters = default_iters;
+      }
+      MasterLog(INFO, "Iterations per timing: %d", iters);
+
+      // Flops and Bandwidth calculations 2
+      double rfo      = 1.0;
+      double bytes_in = static_cast<double>(
+          (8 * 4 * 3 * 2 * sizeof(REAL32) + 8 * 3 * 3 * 2 * sizeof(REAL32)) *
+          num_sites * iters);
+      double bytes_out =
+          static_cast<double>(4 * 3 * 2 * sizeof(REAL32) * num_sites * iters);
+      double rfo_bytes_out = (1.0 + rfo) * bytes_out;
+      double flops         = static_cast<double>(1320.0 * num_sites * iters);
+
       for (int rep = 0; rep < reps; ++rep) {
         // for(int isign=-1; isign < 2; isign+=2) {
         int isign = 1;
 
-        Kokkos::Timer timer;
         timer.reset();
 
         for (int i = 0; i < iters; ++i) {
@@ -133,9 +153,10 @@ TEST(TestKokkos, TestDslashSweep) {
         double time_taken = timer.seconds();
 
         MasterLog(INFO,
+                  "time = %lf (msec) "
                   "time per iter = %lf (usec) Performance: "
                   "%lf GFLOPS Effective BW (RFO=1): %lf GB/sec",
-                  time_taken * 1.0e6 / (double)(iters),
+                  time_taken * 1.0e3, time_taken * 1.0e6 / (double)(iters),
                   flops / (time_taken * 1.0e9),
                   (bytes_in + rfo_bytes_out) / (time_taken * 1.0e9));
 
